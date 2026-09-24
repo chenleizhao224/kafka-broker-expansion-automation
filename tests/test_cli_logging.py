@@ -25,7 +25,7 @@ def test_json_formatter_emits_event_and_fields() -> None:
 def test_confirmation_auto_approves_and_interactive_defaults_no(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = ValidatedPlan(Path("plan"), "resource", 2, 3)
+    plan = ValidatedPlan(Path("plan"), Path("tfvars.json"), "resource", 2, 3)
     assert cli._confirmation(True)(plan)
     monkeypatch.setattr("builtins.input", lambda _prompt: "")
     assert not cli._confirmation(False)(plan)

@@ -10,32 +10,40 @@ This repository is an interview-ready reference implementation and lab project. 
 ## The one operation V1 supports
 
 ```mermaid
-flowchart LR
-    S[Source Kafka] -->|MirrorMaker 2| T[Target Kafka on Kubernetes]
-    T --- B0[broker-0]
-    T --- B1[broker-1]
-    P[Python orchestrator] -->|pre-check metadata + MM2| T
-    P -->|validated plan/apply| TF[Terraform]
-    TF -->|replicas 2 → 3| K8S[Kubernetes StatefulSet]
-    K8S --> B2[broker-2 + PVC]
-    P -->|post-check metadata + MM2| B2
+flowchart TD
+    P[Python orchestrator] --> D[Discover broker IDs 1, 2]
+    D --> C[Calculate new broker ID = 3]
+    C --> PRE[Kafka + MirrorMaker pre-check]
+    PRE --> V[Generate temporary tfvars<br/>broker_count = 3]
+    V --> PLAN[terraform plan]
+    PLAN --> SAFE[Safety validation]
+    SAFE --> APPLY[terraform apply]
+    APPLY --> STS[Kubernetes StatefulSet 2 → 3]
+    STS --> K8S[Kubernetes creates kafka-2 + data-kafka-2 PVC]
+    K8S --> JOIN[Kafka broker ID 3 starts and registers with controller]
+    JOIN --> VERIFY[Python verifies broker IDs 1, 2, 3]
+    VERIFY --> POST[MirrorMaker post-check]
 ```
+
+The Kafka broker ID and Kubernetes ordinal are intentionally different: with
+`broker_node_id_base = 1`, StatefulSet pod `kafka-2` starts as Kafka broker ID `3`.
 
 The command follows one fail-closed workflow:
 
-1. Require exactly two brokers in Kafka metadata, no unavailable partitions, and (by
-   default) no under-replicated partitions.
+1. Discover exactly Kafka broker IDs `[1, 2]`, calculate the next ID as `3`, and require
+   no unavailable partitions and (by default) no under-replicated partitions.
 2. Require the Kafka StatefulSet to be settled at two ready replicas.
 3. Require the MirrorMaker Deployment to be fully rolled out and its target-cluster
    heartbeat topic to contain a recent message.
-4. Run `terraform plan` with `broker_replicas=3` and inspect its JSON representation.
+4. Generate an ephemeral `expansion.tfvars.json` with `broker_count=3`, run
+   `terraform plan` from it, and inspect the plan's JSON representation.
 5. Reject the plan unless its **only** meaningful action is an in-place update of
    `kubernetes_stateful_set_v1.kafka`, with replicas as the **only field** changing from
    2 to 3. Creates, deletes, replacements, and unrelated updates are rejected.
 6. Ask for operator confirmation (unless `--yes` is supplied), then apply the exact saved
    plan that was validated.
-7. Wait for `kafka-2`, `data-kafka-2`, the three-replica StatefulSet, and three brokers in
-   Kafka metadata.
+7. Wait for pod `kafka-2`, PVC `data-kafka-2`, the three-replica StatefulSet, and exact
+   broker IDs `[1, 2, 3]` in Kafka metadata.
 8. Re-run the MirrorMaker rollout and heartbeat checks and emit a structured success or
    failure event.
 

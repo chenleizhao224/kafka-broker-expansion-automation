@@ -16,13 +16,13 @@ variable "statefulset_name" {
   default     = "kafka"
 }
 
-variable "broker_replicas" {
+variable "broker_count" {
   description = "Desired broker count. The Python guard only permits changing 2 to 3."
   type        = number
   default     = 2
 
   validation {
-    condition     = contains([2, 3], var.broker_replicas)
+    condition     = contains([2, 3], var.broker_count)
     error_message = "V1 models only the two-broker baseline and three-broker target."
   }
 }
@@ -47,7 +47,7 @@ variable "controller_quorum_voters" {
 variable "broker_node_id_base" {
   description = "Node ID added to the StatefulSet ordinal"
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "storage_class_name" {
@@ -60,4 +60,3 @@ variable "data_volume_size" {
   type        = string
   default     = "20Gi"
 }
-

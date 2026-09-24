@@ -26,11 +26,13 @@ def test_runner_builds_validates_and_applies_saved_plan(
     runner.initialize()
     plan = runner.plan_and_validate(3)
     runner.apply(plan)
-    runner.close()
 
     assert plan.before_replicas == 2
+    assert json.loads(plan.tfvars_path.read_text(encoding="utf-8")) == {"broker_count": 3}
+    assert any(any(part.startswith("-var-file=") for part in command) for command in commands)
     assert any("plan" in command for command in commands)
     assert any("apply" in command for command in commands)
+    runner.close()
 
 
 def test_runner_surfaces_command_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

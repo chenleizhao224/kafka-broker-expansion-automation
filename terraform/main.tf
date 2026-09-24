@@ -56,7 +56,7 @@ resource "kubernetes_stateful_set_v1" "kafka" {
   }
 
   spec {
-    replicas              = var.broker_replicas
+    replicas              = var.broker_count
     service_name          = kubernetes_service_v1.kafka_headless.metadata[0].name
     pod_management_policy = "OrderedReady"
 

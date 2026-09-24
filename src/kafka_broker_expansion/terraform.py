@@ -16,6 +16,7 @@ from .errors import CommandError, UnsafePlanError
 @dataclass(frozen=True)
 class ValidatedPlan:
     path: Path
+    tfvars_path: Path
     resource_address: str
     before_replicas: int
     after_replicas: int
@@ -97,12 +98,18 @@ class TerraformRunner:
 
     def plan_and_validate(self, target_brokers: int) -> ValidatedPlan:
         self._temporary_directory = tempfile.TemporaryDirectory(prefix="kafka-expansion-")
-        plan_path = Path(self._temporary_directory.name) / "expansion.tfplan"
+        temporary_path = Path(self._temporary_directory.name)
+        plan_path = temporary_path / "expansion.tfplan"
+        tfvars_path = temporary_path / "expansion.tfvars.json"
+        tfvars_path.write_text(
+            json.dumps({"broker_count": target_brokers}, indent=2) + "\n",
+            encoding="utf-8",
+        )
         self._run(
             "plan",
             "-input=false",
             "-no-color",
-            f"-var=broker_replicas={target_brokers}",
+            f"-var-file={tfvars_path}",
             f"-out={plan_path}",
         )
         raw = self._run("show", "-json", str(plan_path))
@@ -116,7 +123,13 @@ class TerraformRunner:
             before=2,
             after=target_brokers,
         )
-        return ValidatedPlan(plan_path, self._settings.statefulset_address, before, after)
+        return ValidatedPlan(
+            plan_path,
+            tfvars_path,
+            self._settings.statefulset_address,
+            before,
+            after,
+        )
 
     def apply(self, plan: ValidatedPlan) -> None:
         self._run("apply", "-input=false", "-no-color", "-auto-approve", str(plan.path))

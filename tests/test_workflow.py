@@ -38,8 +38,8 @@ def settings() -> ExpansionConfig:
 def dependencies() -> tuple[Mock, Mock, Mock]:
     kafka = Mock()
     kafka.inspect_cluster.side_effect = [
-        KafkaHealth((0, 1), 2, 6, 0),
-        KafkaHealth((0, 1, 2), 2, 6, 0),
+        KafkaHealth((1, 2), 2, 6, 0),
+        KafkaHealth((1, 2, 3), 2, 6, 0),
     ]
     kafka.inspect_mirrormaker_heartbeat.return_value = HeartbeatHealth(
         "source.heartbeats", Mock(), 1.5
@@ -53,7 +53,7 @@ def dependencies() -> tuple[Mock, Mock, Mock]:
     kube.inspect_new_broker_resources.return_value = NewBrokerResources("kafka-2", "data-kafka-2")
     terraform = Mock()
     terraform.plan_and_validate.return_value = ValidatedPlan(
-        Path("plan"), "kubernetes_stateful_set_v1.kafka", 2, 3
+        Path("plan"), Path("expansion.tfvars.json"), "kubernetes_stateful_set_v1.kafka", 2, 3
     )
     return kafka, kube, terraform
 
@@ -85,6 +85,18 @@ def test_declined_plan_is_never_applied() -> None:
         workflow.run(lambda _plan: False)
 
     terraform.apply.assert_not_called()
+    terraform.close.assert_called_once()
+
+
+def test_preflight_rejects_unexpected_broker_ids() -> None:
+    kafka, kube, terraform = dependencies()
+    kafka.inspect_cluster.side_effect = [KafkaHealth((0, 1), 2, 6, 0)]
+    workflow = ExpansionWorkflow(settings(), kafka, kube, terraform, logging.getLogger("test"))
+
+    with pytest.raises(HealthCheckError, match=r"requires existing Kafka broker IDs \[1, 2\]"):
+        workflow.run(lambda _plan: True)
+
+    terraform.initialize.assert_not_called()
     terraform.close.assert_called_once()
 
 

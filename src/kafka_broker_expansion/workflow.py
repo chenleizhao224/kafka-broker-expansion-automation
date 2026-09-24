@@ -36,7 +36,7 @@ class ExpansionWorkflow:
     def run(self, approve: Callable[[ValidatedPlan], bool]) -> None:
         """Run all checks and apply exactly one validated infrastructure change."""
         try:
-            self._preflight()
+            existing_broker_ids, new_broker_id = self._preflight()
             self._terraform.initialize()
             plan = self._terraform.plan_and_validate(self._settings.target_brokers)
             log_event(
@@ -45,8 +45,10 @@ class ExpansionWorkflow:
                 "terraform_plan_validated",
                 "Terraform plan passed the change allow-list",
                 resource=plan.resource_address,
+                tfvars_file=plan.tfvars_path.name,
                 before_replicas=plan.before_replicas,
                 after_replicas=plan.after_replicas,
+                new_broker_id=new_broker_id,
             )
             if not approve(plan):
                 raise ExpansionError("operator declined the validated Terraform plan")
@@ -58,7 +60,7 @@ class ExpansionWorkflow:
                 "Applying validated Terraform plan",
             )
             self._terraform.apply(plan)
-            self._wait_for_expansion()
+            self._wait_for_expansion(existing_broker_ids, new_broker_id)
             self._postflight()
             log_event(
                 self._logger,
@@ -70,8 +72,14 @@ class ExpansionWorkflow:
         finally:
             self._terraform.close()
 
-    def _preflight(self) -> None:
+    def _preflight(self) -> tuple[tuple[int, ...], int]:
         kafka = self._kafka.inspect_cluster(self._settings.expected_current_brokers)
+        new_broker_id = max(kafka.broker_ids) + 1
+        if kafka.broker_ids != (1, 2) or new_broker_id != 3:
+            raise HealthCheckError(
+                "V1 requires existing Kafka broker IDs [1, 2] so the new broker ID is 3; "
+                f"discovered {list(kafka.broker_ids)}"
+            )
         statefulset = self._kubernetes.inspect_statefulset(self._settings.expected_current_brokers)
         deployment = self._kubernetes.inspect_mirrormaker_workload()
         heartbeat = self._kafka.inspect_mirrormaker_heartbeat()
@@ -81,13 +89,15 @@ class ExpansionWorkflow:
             "preflight_passed",
             "Kafka and MirrorMaker preflight checks passed",
             broker_ids=kafka.broker_ids,
+            new_broker_id=new_broker_id,
             under_replicated_partitions=kafka.under_replicated_partitions,
             statefulset_ready=statefulset.ready_replicas,
             mirrormaker_ready=deployment.ready_replicas,
             heartbeat_age_seconds=round(heartbeat.age_seconds, 3),
         )
+        return kafka.broker_ids, new_broker_id
 
-    def _wait_for_expansion(self) -> None:
+    def _wait_for_expansion(self, existing_broker_ids: tuple[int, ...], new_broker_id: int) -> None:
         deadline = self._monotonic() + self._settings.timeout_seconds
         latest_error = "resources not checked"
         while self._monotonic() < deadline:
@@ -97,6 +107,12 @@ class ExpansionWorkflow:
                 )
                 statefulset = self._kubernetes.inspect_statefulset(self._settings.target_brokers)
                 kafka = self._kafka.inspect_cluster(self._settings.target_brokers)
+                expected_broker_ids = tuple(sorted((*existing_broker_ids, new_broker_id)))
+                if kafka.broker_ids != expected_broker_ids:
+                    raise HealthCheckError(
+                        f"expected Kafka broker IDs {list(expected_broker_ids)}, "
+                        f"found {list(kafka.broker_ids)}"
+                    )
                 log_event(
                     self._logger,
                     logging.INFO,
