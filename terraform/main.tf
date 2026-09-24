@@ -1,4 +1,5 @@
 provider "kubernetes" {
+  config_path    = pathexpand(var.kube_config_path)
   config_context = var.kube_context
 }
 
@@ -84,7 +85,12 @@ resource "kubernetes_stateful_set_v1" "kafka" {
           args = [<<-EOT
             ordinal="$${HOSTNAME##*-}"
             export KAFKA_NODE_ID="$(( ${var.broker_node_id_base} + ordinal ))"
-            export KAFKA_ADVERTISED_LISTENERS="BROKER://$${HOSTNAME}.${var.statefulset_name}.${var.namespace}.svc.cluster.local:9092"
+            if [[ "${var.demo_external_listener_enabled}" == "true" ]]; then
+              external_port="$((19092 + ordinal))"
+              export KAFKA_ADVERTISED_LISTENERS="INTERNAL://$${HOSTNAME}.${var.statefulset_name}.${var.namespace}.svc.cluster.local:9092,EXTERNAL://localhost:$${external_port}"
+            else
+              export KAFKA_ADVERTISED_LISTENERS="BROKER://$${HOSTNAME}.${var.statefulset_name}.${var.namespace}.svc.cluster.local:9092"
+            fi
             exec /etc/kafka/docker/run
           EOT
           ]
@@ -92,6 +98,10 @@ resource "kubernetes_stateful_set_v1" "kafka" {
           env {
             name  = "CLUSTER_ID"
             value = var.cluster_id
+          }
+          env {
+            name  = "KAFKA_HEAP_OPTS"
+            value = var.kafka_heap_opts
           }
           env {
             name  = "KAFKA_PROCESS_ROLES"
@@ -103,15 +113,15 @@ resource "kubernetes_stateful_set_v1" "kafka" {
           }
           env {
             name  = "KAFKA_LISTENERS"
-            value = "BROKER://:9092"
+            value = var.demo_external_listener_enabled ? "INTERNAL://:9092,EXTERNAL://:9094" : "BROKER://:9092"
           }
           env {
             name  = "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP"
-            value = "BROKER:PLAINTEXT,CONTROLLER:PLAINTEXT"
+            value = var.demo_external_listener_enabled ? "INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT" : "BROKER:PLAINTEXT,CONTROLLER:PLAINTEXT"
           }
           env {
             name  = "KAFKA_INTER_BROKER_LISTENER_NAME"
-            value = "BROKER"
+            value = var.demo_external_listener_enabled ? "INTERNAL" : "BROKER"
           }
           env {
             name  = "KAFKA_CONTROLLER_LISTENER_NAMES"
@@ -127,6 +137,11 @@ resource "kubernetes_stateful_set_v1" "kafka" {
             container_port = 9092
           }
 
+          port {
+            name           = "external"
+            container_port = 9094
+          }
+
           readiness_probe {
             tcp_socket {
               port = "broker"
@@ -139,12 +154,12 @@ resource "kubernetes_stateful_set_v1" "kafka" {
 
           resources {
             requests = {
-              cpu    = "500m"
-              memory = "1Gi"
+              cpu    = var.broker_cpu_request
+              memory = var.broker_memory_request
             }
             limits = {
-              cpu    = "1"
-              memory = "2Gi"
+              cpu    = var.broker_cpu_limit
+              memory = var.broker_memory_limit
             }
           }
 

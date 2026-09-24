@@ -1,0 +1,26 @@
+expected_current_brokers: 2
+target_brokers: 3
+timeout_seconds: 600
+poll_interval_seconds: 5
+
+kafka:
+  bootstrap_servers: localhost:19092
+  request_timeout_seconds: 10
+  require_fully_replicated_partitions: true
+
+kubernetes:
+  context: kind-kafka-expansion-demo
+  namespace: kafka
+  statefulset: kafka
+  broker_container: kafka
+  data_claim_name: data
+  mirrormaker_deployment: kafka-mirrormaker2
+
+mirrormaker:
+  heartbeat_topic: source.heartbeats
+  max_heartbeat_age_seconds: 120
+
+terraform:
+  directory: ../terraform
+  binary: terraform
+  statefulset_address: kubernetes_stateful_set_v1.kafka

@@ -39,6 +39,14 @@ def test_accepts_only_replica_scale_up() -> None:
     assert validate_plan_json(safe_plan(), expected_address=ADDRESS) == (2, 3)
 
 
+def test_accepts_provider_string_replica_values() -> None:
+    plan = safe_plan()
+    plan["resource_changes"][1]["change"]["before"]["spec"][0]["replicas"] = "2"  # type: ignore[index]
+    plan["resource_changes"][1]["change"]["after"]["spec"][0]["replicas"] = "3"  # type: ignore[index]
+
+    assert validate_plan_json(plan, expected_address=ADDRESS) == (2, 3)
+
+
 @pytest.mark.parametrize("actions", [["delete"], ["create", "delete"], ["create"]])
 def test_rejects_destructive_or_creating_actions(actions: list[str]) -> None:
     plan = safe_plan()

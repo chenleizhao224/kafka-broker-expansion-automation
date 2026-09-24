@@ -4,6 +4,12 @@ variable "kube_context" {
   default     = null
 }
 
+variable "kube_config_path" {
+  description = "Path to the kubeconfig containing kube_context"
+  type        = string
+  default     = "~/.kube/config"
+}
+
 variable "namespace" {
   description = "Namespace of the existing Kafka cluster"
   type        = string
@@ -48,6 +54,42 @@ variable "broker_node_id_base" {
   description = "Node ID added to the StatefulSet ordinal"
   type        = number
   default     = 1
+}
+
+variable "demo_external_listener_enabled" {
+  description = "Expose per-broker localhost listeners for the isolated Kind demo only"
+  type        = bool
+  default     = false
+}
+
+variable "kafka_heap_opts" {
+  description = "Kafka JVM heap settings"
+  type        = string
+  default     = "-Xms512m -Xmx1g"
+}
+
+variable "broker_cpu_request" {
+  description = "CPU requested by each broker"
+  type        = string
+  default     = "500m"
+}
+
+variable "broker_memory_request" {
+  description = "Memory requested by each broker"
+  type        = string
+  default     = "1Gi"
+}
+
+variable "broker_cpu_limit" {
+  description = "CPU limit for each broker"
+  type        = string
+  default     = "1"
+}
+
+variable "broker_memory_limit" {
+  description = "Memory limit for each broker"
+  type        = string
+  default     = "2Gi"
 }
 
 variable "storage_class_name" {

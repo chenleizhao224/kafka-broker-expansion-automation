@@ -82,7 +82,7 @@ def validate_plan_json(
         raise UnsafePlanError("StatefulSet before/after values are missing")
     normalized_before = json.loads(json.dumps(before_value))
     normalized_after = json.loads(json.dumps(after_value))
-    normalized_before["spec"][0]["replicas"] = after
+    normalized_before["spec"][0]["replicas"] = normalized_after["spec"][0]["replicas"]
     if normalized_before != normalized_after:
         raise UnsafePlanError("plan changes StatefulSet fields other than replicas")
     return before, after

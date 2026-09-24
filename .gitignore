@@ -10,3 +10,6 @@ __pycache__/
 *.tfstate.*
 .terraform/
 crash.log
+config/cluster.yaml
+terraform/terraform.tfvars
+work/

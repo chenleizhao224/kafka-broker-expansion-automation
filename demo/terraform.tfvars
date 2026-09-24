@@ -1,0 +1,14 @@
+kube_context                   = "kind-kafka-expansion-demo"
+namespace                      = "kafka"
+statefulset_name               = "kafka"
+kafka_image                    = "apache/kafka:3.8.0"
+controller_quorum_voters       = "100@kafka-controller-0.kafka-controller.kafka.svc.cluster.local:9093"
+broker_node_id_base            = 1
+demo_external_listener_enabled = true
+kafka_heap_opts                = "-Xms128m -Xmx256m"
+broker_cpu_request             = "100m"
+broker_memory_request          = "256Mi"
+broker_cpu_limit               = "500m"
+broker_memory_limit            = "512Mi"
+storage_class_name             = "standard"
+data_volume_size               = "1Gi"

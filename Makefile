@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check terraform-fmt terraform-validate run
+.PHONY: install lint typecheck test check terraform-fmt terraform-validate run demo
 
 install:
 	python -m pip install -e '.[dev]'
@@ -25,3 +25,5 @@ check: lint test terraform-fmt terraform-validate
 run:
 	kafka-expand --config config/cluster.yaml
 
+demo:
+	./scripts/demo.sh

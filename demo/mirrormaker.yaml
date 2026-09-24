@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-mirrormaker2
+  namespace: kafka
+  labels:
+    demo.openai.com/mode: heartbeat-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-mirrormaker2
+  template:
+    metadata:
+      labels:
+        app: kafka-mirrormaker2
+        demo.openai.com/mode: heartbeat-simulator
+    spec:
+      containers:
+        - name: mirrormaker
+          image: alpine:3.20
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              apk add --no-cache kcat
+              while true; do
+                date -u +%Y-%m-%dT%H:%M:%SZ | kcat -P \
+                  -b kafka-bootstrap.kafka.svc.cluster.local:9092 \
+                  -t source.heartbeats
+                sleep 10
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

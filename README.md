@@ -132,6 +132,23 @@ Logs are newline-delimited JSON with stable events such as `preflight_passed`,
 `terraform_plan_validated`, `new_broker_ready`, `postflight_passed`, and
 `expansion_failed`.
 
+## One-command local demo
+
+With Docker Desktop running, the repository can create an isolated Kind lab and execute
+the real flow end to end:
+
+```bash
+make demo
+```
+
+The command creates a two-broker target Kafka and runs the guarded expansion. To keep the
+lab small enough for a laptop, the demo Deployment is a lightweight MirrorMaker heartbeat
+simulator rather than a second Kafka cluster plus a full MM2 JVM. The production-facing
+Python check is unchanged: it still requires both a ready Deployment and a fresh heartbeat.
+The command finishes only after broker IDs `[1, 2, 3]` have been verified. It uses the
+dedicated Kubernetes context `kind-kafka-expansion-demo` and does not target another
+context.
+
 ## Safety and failure behavior
 
 - Configuration validation hard-codes the V1 transition to exactly 2 → 3.
