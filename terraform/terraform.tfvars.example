@@ -1,0 +1,8 @@
+namespace                = "kafka"
+statefulset_name          = "kafka"
+controller_quorum_voters = "100@kafka-controller-0.kafka-controller.kafka.svc.cluster.local:9093,101@kafka-controller-1.kafka-controller.kafka.svc.cluster.local:9093,102@kafka-controller-2.kafka-controller.kafka.svc.cluster.local:9093"
+storage_class_name        = "standard"
+
+# Keep secrets and environment-specific values out of version control:
+# export TF_VAR_cluster_id='<existing-kraft-cluster-id>'
+

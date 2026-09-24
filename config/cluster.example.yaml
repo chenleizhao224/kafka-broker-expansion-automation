@@ -1,0 +1,29 @@
+# This checked-in file is documentation. Copy it to cluster.yaml and adapt it.
+expected_current_brokers: 2
+target_brokers: 3
+timeout_seconds: 600
+poll_interval_seconds: 5
+
+kafka:
+  bootstrap_servers: kafka-bootstrap.kafka.svc.cluster.local:9092
+  request_timeout_seconds: 10
+  require_fully_replicated_partitions: true
+
+kubernetes:
+  context: kind-kafka-lab
+  namespace: kafka
+  statefulset: kafka
+  broker_container: kafka
+  data_claim_name: data
+  mirrormaker_deployment: kafka-mirrormaker2
+
+mirrormaker:
+  # Use the actual MM2 heartbeat topic visible on the target cluster.
+  heartbeat_topic: source.heartbeats
+  max_heartbeat_age_seconds: 120
+
+terraform:
+  directory: ../terraform
+  binary: terraform
+  statefulset_address: kubernetes_stateful_set_v1.kafka
+
